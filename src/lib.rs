@@ -59,7 +59,6 @@ pub const DEFAULT_TRASH_CTX: TrashContext = TrashContext::new();
 /// A collection of preferences for trash operations.
 #[derive(Clone, Default, Debug)]
 pub struct TrashContext {
-    #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
     platform_specific: platform::PlatformTrashContext,
 }
 impl TrashContext {
@@ -146,7 +145,7 @@ pub enum Error {
     /// **freedesktop only**
     ///
     /// Error coming from file system
-    #[cfg(all(unix, not(target_os = "macos"), not(target_os = "ios"), not(target_os = "android")))]
+    #[cfg(all(unix, not(target_os = "ios"), not(target_os = "android")))]
     FileSystem {
         path: PathBuf,
         source: std::io::Error,
@@ -215,7 +214,7 @@ impl fmt::Display for Error {
 impl error::Error for Error {
     fn source(&self) -> Option<&(dyn error::Error + 'static)> {
         match self {
-            #[cfg(all(unix, not(target_os = "macos"), not(target_os = "ios"), not(target_os = "android")))]
+            #[cfg(all(unix, not(target_os = "ios"), not(target_os = "android")))]
             Self::FileSystem { path: _, source: e } => e.source(),
             _ => None,
         }
@@ -343,10 +342,7 @@ pub struct TrashItemMetadata {
     pub size: TrashItemSize,
 }
 
-#[cfg(any(
-    target_os = "windows",
-    all(unix, not(target_os = "macos"), not(target_os = "ios"), not(target_os = "android"))
-))]
+#[cfg(any(target_os = "windows", all(unix, not(target_os = "ios"), not(target_os = "android"))))]
 pub mod os_limited {
     //! This module provides functionality which is only supported on Windows and
     //! Linux or other Freedesktop Trash compliant environment.
@@ -400,14 +396,14 @@ pub mod os_limited {
     /// # Example
     ///
     /// ```
-    /// # #[cfg(all(unix, not(target_os = "macos"), not(target_os = "ios"), not(target_os = "android")))] {
+    /// # #[cfg(all(unix, not(target_os = "ios"), not(target_os = "android")))] {
     /// use trash::os_limited::trash_folders;
     /// let trash_bins = trash_folders()?;
     /// println!("{trash_bins:#?}");
     /// # }
     /// # Ok::<(), trash::Error>(())
     /// ```
-    #[cfg(all(unix, not(target_os = "macos"), not(target_os = "ios"), not(target_os = "android")))]
+    #[cfg(all(unix, not(target_os = "ios"), not(target_os = "android")))]
     pub fn trash_folders() -> Result<HashSet<std::path::PathBuf>, Error> {
         platform::trash_folders()
     }

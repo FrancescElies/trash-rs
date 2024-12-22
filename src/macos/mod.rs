@@ -1,13 +1,19 @@
 use std::{
+    borrow::Borrow,
+    collections::HashSet,
     ffi::OsString,
+    fs::{self, ReadDir},
+    io,
     path::{Path, PathBuf},
     process::Command,
+    str::FromStr,
 };
 
 use log::trace;
+use objc2::rc::Retained;
 use objc2_foundation::{NSFileManager, NSString, NSURL};
 
-use crate::{into_unknown, Error, TrashContext};
+use crate::{into_unknown, Error, TrashContext, TrashItem, TrashItemMetadata};
 
 #[derive(Copy, Clone, Debug)]
 /// There are 2 ways to trash files: via the ≝Finder app or via the OS NsFileManager call
@@ -200,6 +206,101 @@ fn esc_quote(s: &str) -> Cow<'_, str> {
     } else {
         Cow::Borrowed(s)
     }
+}
+
+fn get_date_added(path: &Path) -> i64 {
+    unsafe {
+        let file_mgr = NSFileManager::defaultManager();
+        file_mgr
+            .attributesOfItemAtPath_error(&NSString::from_str(path.to_str().unwrap()))
+            .unwrap()
+            .fileModificationDate() // TODO: use `Date Added` attribute, but where is it?
+            .unwrap()
+            .timeIntervalSince1970() as i64
+    }
+}
+
+fn get_home() -> String {
+    unsafe {
+        let file_mgr = NSFileManager::defaultManager();
+        file_mgr.homeDirectoryForCurrentUser().path().unwrap().to_string()
+    }
+}
+
+fn get_items_in_trash(trash_dir: &PathBuf) -> Result<ReadDir, Error> {
+    match fs::read_dir(trash_dir) {
+        Ok(x) => Ok(x),
+        Err(ref e) if e.kind() == io::ErrorKind::PermissionDenied => {
+            return Err(Error::CouldNotAccess {
+                    target: format!("To read {} open `System Settings` `Privacy & Security` give `Full Disk Access` to your Terminal or App", trash_dir.display()),
+                });
+        }
+        Err(e) => return Err(Error::FileSystem { path: trash_dir.clone(), source: e }),
+    }
+}
+
+pub fn list() -> Result<Vec<TrashItem>, Error> {
+    let mut result = Vec::new();
+    for trash_dir in &trash_folders()? {
+        for entry in get_items_in_trash(&trash_dir)? {
+            let Ok(entry) = entry else {
+                continue;
+            };
+            if entry.file_name() == ".DS_Store" {
+                continue;
+            }
+            result.push(TrashItem {
+                id: entry.path().into(),
+                name: entry.file_name(),
+                original_parent: PathBuf::from_str("TODO").unwrap(),
+                time_deleted: get_date_added(&entry.path()),
+            });
+        }
+    }
+    Ok(result)
+}
+
+pub fn is_empty() -> Result<bool, Error> {
+    for trash_dir in &trash_folders()? {
+        for entry in get_items_in_trash(&trash_dir)? {
+            let Ok(entry) = entry else {
+                continue;
+            };
+            if entry.file_name() == ".DS_Store" {
+                continue;
+            } else {
+                return Ok(false);
+            }
+        }
+    }
+    Ok(true)
+}
+
+pub fn trash_folders() -> Result<HashSet<PathBuf>, Error> {
+    let home = get_home();
+    let mut trash_dirs = HashSet::new();
+    trash_dirs.insert([&home, ".Trash"].iter().collect::<PathBuf>());
+    // TODO: iterate over /Volumes/*/
+    Ok(trash_dirs)
+}
+
+pub fn metadata(item: &TrashItem) -> Result<TrashItemMetadata, Error> {
+    unimplemented!()
+}
+
+pub fn purge_all<I>(items: I) -> Result<(), Error>
+where
+    I: IntoIterator,
+    <I as IntoIterator>::Item: Borrow<TrashItem>,
+{
+    unimplemented!()
+}
+
+pub fn restore_all<I>(items: I) -> Result<(), Error>
+where
+    I: IntoIterator<Item = TrashItem>,
+{
+    unimplemented!()
 }
 
 #[cfg(test)]

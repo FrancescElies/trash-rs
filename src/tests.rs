@@ -23,7 +23,7 @@ pub use utils::{get_unique_name, init_logging};
 
 #[cfg(any(
     target_os = "windows",
-    all(unix, not(target_os = "macos"), not(target_os = "ios"), not(target_os = "android"))
+    all(unix, not(target_os = "ios"), not(target_os = "android"))
 ))]
 mod os_limited {
     use super::{get_unique_name, init_logging};
@@ -32,7 +32,7 @@ mod os_limited {
     use std::ffi::{OsStr, OsString};
     use std::fs::File;
 
-    #[cfg(all(unix, not(target_os = "macos"), not(target_os = "ios"), not(target_os = "android")))]
+    #[cfg(all(unix, not(target_os = "ios"), not(target_os = "android")))]
     use std::os::unix::ffi::OsStringExt;
 
     use crate as trash;
@@ -97,7 +97,7 @@ mod os_limited {
         let _ = trash::os_limited::purge_all(items.iter().flat_map(|(_name, item)| item));
     }
 
-    #[cfg(all(unix, not(target_os = "macos"), not(target_os = "ios"), not(target_os = "android")))]
+    #[cfg(all(unix, not(target_os = "ios"), not(target_os = "android")))]
     #[test]
     #[serial]
     fn list_invalid_utf8() {
